@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="utf-8"?>
+<program xmlns="http://www.kinoma.com/kpr/1">
+
+    <require id="GPIO" path="GPIO" />
+    <require id="HardwarepinsModule" path="HardwarepinsModule" />
+
+    <container id="MainContainer" top="0" left="0" bottom="0" right="0">
+        <skin color="white"/>
+        <label name="info" string="'- - -'">
+            <style font="24px Arial" color="black"/>
+        </label>
+    </container>
+
+    <script>
+        <![CDATA[
+            // Create a new Button object that will poll for state
+            // changes on GPIO input pin 9. The button is pressed
+            // when the input state is set to 0 (low)
+            var button = new GPIO.Button( 9, HardwarepinsModule.LOW );
+
+            // initialize the led group
+            button.init();
+
+            // create the main container
+            var mainContainer = new MainContainer();
+
+            // add main container to the application
+            application.add( mainContainer );
+
+            // start polling the button state
+            button.poll( 50, HardwarepinsModule.MILLISECONDS, "/button/value" );
+        ]]>
+    </script>
+    
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+    <!-- Handler that is called when the button state is changed -->
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+    <handler path="/button/value">
+        <behavior>
+            <method id="onInvoke" params="handler, message">
+                <![CDATA[
+                    var data = message.requestObject;
+
+                    if( data != null ) 
+                    {
+                        var info = data.value == 0 ? "Low" : "High";
+
+                        if( data.pressed )
+                            info += " (Pressed)";
+
+                        mainContainer.info.string = info;
+                    }
+                ]]>
+            </method>
+        </behavior>
+    </handler>
+
+</program>

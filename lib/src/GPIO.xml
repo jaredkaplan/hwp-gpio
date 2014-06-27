@@ -1,0 +1,446 @@
+<!--
+  Copyright 2011-2014 Marvell Semiconductor, Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<module xmlns="http://www.kinoma.com/kpr/1">
+
+    <require id="HardwarepinsModule" path="HardwarepinsModule" />
+
+    <!-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+    <!-- Basic input module for detecting state change on a single GPIO pin -->
+    <!-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+    <class id="Input" like="HardwarepinsModule.GPIO">
+        <constructor params="pin, config">
+            <![CDATA[
+                HardwarepinsModule.GPIO.call( this, pin, HardwarepinsModule.INPUT, config );
+            ]]>
+        </constructor>
+        <method id="configureParameters" params="parameters">
+             <![CDATA[
+                HardwarepinsModule.GPIO.prototype.configureParameters.call( this, parameters );
+
+                parameters.pin = this.pin;
+             ]]>
+        </method>
+        <method id="createHardwarepinsSimulator">
+            <![CDATA[
+                return new InputSimulatorInterface();
+            ]]>
+        </method>
+        <method id="init" params="callback">
+            <![CDATA[
+                this.run( "GPIOScripts", "input_bll_init", null, callback );
+            ]]>
+        </method>
+        <method id="get" params="callback">
+            <![CDATA[
+                this.run( "GPIOScripts", "input_bll_get", null, callback );
+            ]]>
+        </method>
+        <method id="poll" params="time, units, callback, skipFirst">
+            <![CDATA[
+                this.repeat( "GPIOScripts", "input_bll_poll", null, time, units, skipFirst, callback );
+            ]]>
+        </method>
+        <getter id="pin">
+            <![CDATA[
+                return this.pins[0];
+            ]]>
+        </getter>
+    </class>
+
+    <!-- +++++++++++++++++++++++++++++++ -->
+    <!-- Basic input simulator interface -->
+    <!-- +++++++++++++++++++++++++++++++ -->
+
+    <variable id="INPUT_SIMULATOR_ID" value="'GPIO.Input'" />
+
+    <class id="InputSimulatorInterface" like="HardwarepinsModule.SimulatorInterface">
+        <method id="getSimulatorId">
+            <![CDATA[
+                return INPUT_SIMULATOR_ID;
+            ]]>
+        </method>
+        <method id="getSimulatorModule">
+            <![CDATA[
+                return mergeURI( module.uri, "GPIOSimulators" );
+            ]]>
+        </method>
+        <method id="input_bll_init" params="query, parameters, invoker">
+            <![CDATA[
+                this.sendHardwarepinsEvent( "init", query, parameters, invoker );
+            ]]>
+        </method>
+        <method id="input_bll_get" params="query, parameters, invoker">
+            <![CDATA[
+                this.sendHardwarepinsEvent( "get", query, parameters, invoker );
+            ]]>
+        </method>
+        <method id="input_bll_poll" params="query, parameters, invoker">
+            <![CDATA[
+                this.sendHardwarepinsEvent( "poll", query, parameters, invoker );
+            ]]>
+        </method>
+    </class>
+
+    <!-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+    <!-- Basic output module for changing state change of a single GPIO pin -->
+    <!-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+    <class id="Output" like="HardwarepinsModule.GPIO">
+        <field id="state" />
+        <field id="group" />
+        <constructor params="pin, config">
+            <![CDATA[
+                HardwarepinsModule.GPIO.call( this, pin, HardwarepinsModule.OUTPUT, config );
+
+                this.state = HardwarepinsModule.LOW;
+            ]]>
+        </constructor>
+        <method id="configureParameters" params="parameters">
+            <![CDATA[
+                HardwarepinsModule.GPIO.prototype.configureParameters.call( this, parameters );
+
+                parameters.pin = this.pin;
+            ]]>
+        </method>
+        <method id="init" params="callback">
+            <![CDATA[
+                this.run( "GPIOScripts", "output_bll_init", null, callback );
+            ]]>
+        </method>
+        <method id="set" params="value, callback">
+            <![CDATA[
+                this.state = value;
+
+                if( this.group == null )
+                    this.sync( callback );
+            ]]>
+        </method>
+        <method id="off" params="callback">
+            <![CDATA[
+                this.set( HardwarepinsModule.LOW, callback );
+            ]]>
+        </method>
+        <method id="on" params="callback">
+            <![CDATA[
+                this.set( HardwarepinsModule.HIGH, callback );
+            ]]>
+        </method>
+        <method id="toggle" params="callback">
+            <![CDATA[
+                this.set( this.state == HardwarepinsModule.LOW ? HardwarepinsModule.HIGH : HardwarepinsModule.LOW, callback );
+            ]]>
+        </method>
+        <method id="sync" params="callback">
+            <![CDATA[
+                this.run( "GPIOScripts", "output_bll_set", { value: this.state }, callback );
+            ]]>
+        </method>
+        <method id="serialize">
+            <![CDATA[
+                return { pin:this.pin, state:this.state };
+            ]]>
+        </method>
+        <getter id="pin">
+            <![CDATA[
+                return this.pins[0];
+            ]]>
+        </getter>
+    </class>
+
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+    <!-- OutputGroup module for controlling a group of output pins -->
+    <!-- that need to be synchronized.                             -->
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+    <class id="OutputGroup" like="HardwarepinsModule.HardwarepinsModule">
+        <field id="outputs" />
+        <constructor params="config">
+            <![CDATA[
+                HardwarepinsModule.HardwarepinsModule.call( this, config );
+
+                this.outputs = new Array();
+            ]]>
+        </constructor>
+        <method id="add" params="output">
+            <![CDATA[
+                if( output instanceof Output )
+                {
+                    output.group = this;
+                
+                    this.outputs.push( output );
+                }
+                else
+                    throw new Error( "You can only add Output object to the OutputGroup!" );
+            ]]>
+        </method>
+        <method id="get" params="pin">
+            <![CDATA[
+                var output = null;
+
+                for( var j = 0; j < this.outputs.length; j++ )
+                {
+                    if( this.outputs[j].pin == pin ) {
+                        output = this.output[j];
+                        break;
+                    }
+                }
+
+                return output;
+            ]]>
+        </method>
+        <method id="configureParameters" params="parameters">
+            <![CDATA[
+                 HardwarepinsModule.HardwarepinsModule.prototype.configureParameters.call( this, parameters );
+
+                 parameters.outputs = new Array();
+
+                 for( var j = 0; j < this.outputs.length; j++ )
+                    parameters.outputs.push( this.outputs[j].serialize() );
+            ]]>
+        </method>
+        <method id="init" params="callback">
+            <![CDATA[
+                this.run( "GPIOScripts", "outputgroup_bll_init", null, callback );
+            ]]>
+        </method>
+        <method id="sync" params="callback">
+            <![CDATA[
+                if( this.isSimulator() )
+                {
+                    for( var j = 0; j < this.outputs.length; j++ )
+                       this.outputs[j].sync( j == (this.outputs.length - 1) ? callback : null );
+                }
+                else
+                    this.run( "GPIOScripts", "outputgroup_bll_sync", null, callback );
+            ]]>
+        </method>
+        <method id="off" params="callback">
+            <![CDATA[
+                for( var j = 0; j < this.outputs.length; j++ )
+                   this.outputs[j].off();
+
+                this.sync( callback );
+            ]]>
+        </method>
+        <method id="on" params="callback">
+            <![CDATA[
+                for( var j = 0; j < this.outputs.length; j++ )
+                   this.outputs[j].on();
+
+                this.sync( callback );
+            ]]>
+        </method>
+        <method id="toggle" params="callback">
+            <![CDATA[
+                for( var j = 0; j < this.outputs.length; j++ )
+                   this.outputs[j].toggle();
+
+                this.sync( callback );
+            ]]>
+        </method>
+        <method id="randomize" params="callback">
+            <![CDATA[
+                for( var j = 0; j < this.outputs.length; j++ )
+                   this.outputs[j].state = Math.random() < 0.5 ? HardwarepinsModule.LOW : HardwarepinsModule.HIGH;
+
+                this.sync( callback );
+            ]]>
+        </method>
+    </class>
+
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+    <!-- Button module for detecting when a GPIO button has been pressed -->
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+    <class id="Button" like="Input">
+        <field id="pressedState"/>
+        <constructor params="pin, pressedState, config">
+            <![CDATA[
+                Input.call( this, pin, config );
+
+                if( pressedState != null && (pressedState == HardwarepinsModule.HIGH || pressedState == HardwarepinsModule.LOW) )
+                    this.pressedState = pressedState;
+            ]]>
+        </constructor>
+        <method id="configureParameters" params="parameters">
+         <![CDATA[
+            Input.prototype.configureParameters.call( this, parameters );
+
+            parameters.pressedState = this.pressedState;
+         ]]>
+        </method>
+        <method id="createHardwarepinsSimulator">
+            <![CDATA[
+                return new ButtonSimulatorInterface();
+            ]]>
+        </method>
+        <method id="get" params="callback">
+            <![CDATA[
+                this.run( "GPIOScripts", "button_bll_get", null, callback );
+            ]]>
+        </method>
+        <method id="poll" params="time, units, callback, skipFirst">
+            <![CDATA[
+                this.repeat( "GPIOScripts", "button_bll_poll", null, time, units, skipFirst, callback );
+            ]]>
+        </method>
+    </class>
+
+    <!-- ++++++++++++++++++++++++++ -->
+    <!-- Button simulator interface -->
+    <!-- ++++++++++++++++++++++++++ -->
+
+    <variable id="BUTTON_SIMULATOR_ID" value="'GPIO.Button'" />
+
+    <class id="ButtonSimulatorInterface" like="HardwarepinsModule.SimulatorInterface">
+        <method id="getSimulatorId">
+            <![CDATA[
+                return BUTTON_SIMULATOR_ID;
+            ]]>
+        </method>
+        <method id="getSimulatorModule">
+            <![CDATA[
+                return mergeURI( module.uri, "GPIOSimulators" );
+            ]]>
+        </method>
+        <method id="input_bll_init" params="query, parameters, invoker">
+            <![CDATA[
+                this.sendHardwarepinsEvent( "init", query, parameters, invoker );
+            ]]>
+        </method>
+        <method id="button_bll_get" params="query, parameters, invoker">
+            <![CDATA[
+                this.sendHardwarepinsEvent( "get", query, parameters, invoker );
+            ]]>
+        </method>
+        <method id="button_bll_poll" params="query, parameters, invoker">
+            <![CDATA[
+                this.sendHardwarepinsEvent( "poll", query, parameters, invoker );
+            ]]>
+        </method>
+    </class>
+
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+    <!-- Directional button module for detecting when a GPIO button has  -->
+    <!-- been pressed in specific directions                             -->
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+    <class id="DirectionalButton" like="HardwarepinsModule.GPIO">
+        <constructor params="up, down, left, right, center, config">
+            <![CDATA[
+                HardwarepinsModule.GPIO.call( this, [up,down,left,right,center], HardwarepinsModule.INPUT, config );
+            ]]>
+        </constructor>
+        <method id="configureParameters" params="parameters">
+             <![CDATA[
+                HardwarepinsModule.GPIO.prototype.configureParameters.call( this, parameters );
+
+                parameters.up = this.up;
+                parameters.down = this.down;
+                parameters.left = this.left;
+                parameters.right = this.right;
+                parameters.center = this.center;
+             ]]>
+        </method>
+        <method id="init" params="callback">
+            <![CDATA[
+                this.run( "GPIOScripts", "directional_bll_init", null, callback );
+            ]]>
+        </method>
+        <method id="get" params="callback">
+            <![CDATA[
+                this.run( "GPIOScripts", "directional_bll_get", null, callback );
+            ]]>
+        </method>
+        <method id="poll" params="time, units, callback, skipFirst">
+            <![CDATA[
+                this.repeat( "GPIOScripts", "directional_bll_poll", null, time, units, skipFirst, callback );
+            ]]>
+        </method>
+        <getter id="up">
+            <![CDATA[
+                return this.pins[0];
+            ]]>
+        </getter>
+        <getter id="down">
+            <![CDATA[
+                return this.pins[1];
+            ]]>
+        </getter>
+        <getter id="left">
+            <![CDATA[
+                return this.pins[2];
+            ]]>
+        </getter>
+        <getter id="right">
+            <![CDATA[
+                return this.pins[3];
+            ]]>
+        </getter>
+        <getter id="center">
+            <![CDATA[
+                return this.pins[4];
+            ]]>
+        </getter>
+    </class>
+
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+    <!-- LED module for controlling an LED connected to a GPIO pin -->
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+    <class id="LED" like="Output">
+        <constructor params="pin, config">
+            <![CDATA[
+                Output.call( this, pin, config );
+            ]]>
+        </constructor>
+        <method id="createHardwarepinsSimulator">
+            <![CDATA[
+                return new LEDSimulatorInterface();
+            ]]>
+        </method>
+    </class>
+
+    <!-- LED simulator interface -->
+    <variable id="LED_SIMULATOR_ID" value="'GPIO.LED'" />
+
+    <private>
+        <class id="LEDSimulatorInterface" like="HardwarepinsModule.SimulatorInterface">
+            <method id="getSimulatorId">
+                <![CDATA[
+                    return LED_SIMULATOR_ID;
+                ]]>
+            </method>
+            <method id="getSimulatorModule">
+                <![CDATA[
+                    return mergeURI( module.uri, "GPIOSimulators" );
+                ]]>
+            </method>
+            <method id="output_bll_init" params="query, parameters, invoker">
+                <![CDATA[
+                    this.sendHardwarepinsEvent( "init", query, parameters, invoker );
+                ]]>
+            </method>
+            <method id="output_bll_set" params="query, parameters, invoker">
+                <![CDATA[
+                    this.sendHardwarepinsEvent( "set", query, parameters, invoker );
+                ]]>
+            </method>
+        </class>
+    </private>
+
+</module>

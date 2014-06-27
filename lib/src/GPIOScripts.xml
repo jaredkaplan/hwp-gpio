@@ -1,0 +1,162 @@
+<!--
+  Copyright 2011-2014 Marvell Semiconductor, Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<module xmlns="http://www.kinoma.com/kpr/1">
+
+    <!-- Input BLL scripts -->
+    <variable id="inputStates" value="{}"/>
+
+    <function id="hasInputStateChanged" params="values, update">
+        <![CDATA[
+            var changed = false;
+
+            for( var next in values )
+            {
+                if( (next in inputStates) == false ||  values[next] != inputStates[next] ) 
+                {
+                    changed = true;
+
+                    if( update )
+                        inputStates[next] = values[next];
+                    else
+                        break;
+                }
+            }
+
+            return changed;
+        ]]>
+    </function>
+    <function id="createInputResult" params="value">
+        <![CDATA[
+            return { value:value };
+        ]]>
+    </function>
+    <function id="input_bll_init" params="parameters">
+        <![CDATA[
+            gpio.init( parameters.pins, parameters.direction );
+        ]]>
+    </function>
+    <function id="input_bll_get" params="parameters">
+        <![CDATA[
+            var pins = gpio.read( parameters.pins );
+            var value = pins[parameters.pin];
+
+            // create the input result
+            return createInputResult( value );
+        ]]>
+    </function>
+    <function id="input_bll_poll" params="parameters">
+        <![CDATA[
+            var values = gpio.read( [parameters.pins] );
+            var result = null;
+
+            if( hasInputStateChanged( values, true ) )
+                result = createInputResult( values[parameters.pin] );  
+
+            return result;
+        ]]>
+    </function>
+
+    <!-- Button BLL scripts -->
+    <function id="createButtonResult" params="value, pressed">
+        <![CDATA[
+            return { value:value, pressed:pressed };
+        ]]>
+    </function>
+    <function id="button_bll_get" params="parameters">
+        <![CDATA[
+            var pins = gpio.read( parameters.pins );
+            var value = pins[parameters.pin];
+
+            // create the input result
+            return createButtonResult( value, value == parameters.pressedState );        
+        ]]>
+    </function>
+    <function id="button_bll_poll" params="parameters">
+        <![CDATA[
+            var values = gpio.read( [parameters.pins] );
+            var result = null;
+            
+            if( hasInputStateChanged( values, true ) )
+                result = createButtonResult( values[parameters.pin], values[parameters.pin] == parameters.pressedState );  
+
+            return result;
+        ]]>
+    </function>
+
+    <!-- Direction button BLL scripts -->
+    <function id="createDirectionalResult" params="up, down, left, right, center">
+        <![CDATA[
+            return { up:up,down:down,left:left,right:right,center:center };
+        ]]>
+    </function>
+    <function id="directional_bll_init" params="parameters">
+        <![CDATA[
+            gpio.init( parameters.pins, parameters.direction );
+        ]]>
+    </function>
+    <function id="directional_bll_get" params="parameters">
+        <![CDATA[
+            var pins = gpio.read( parameters.pins );
+
+            // create the direction button result
+            return createDirectionalResult( pins[parameters.up], pins[parameters.down], pins[parameters.left], pins[parameters.right], pins[parameters.center] );        
+        ]]>
+    </function>
+    <function id="directional_bll_poll" params="parameters">
+        <![CDATA[
+            var values = gpio.read( parameters.pins );
+            var result = null;
+
+            if( hasInputStateChanged( values, true ) )
+                result = createDirectionalResult( values[parameters.up], values[parameters.down], values[parameters.left], values[parameters.right], values[parameters.center] );
+
+            return result;
+        ]]>
+    </function>
+
+    <!-- Output BLL scripts -->
+    <function id="output_bll_init" params="parameters">
+        <![CDATA[
+            gpio.init( parameters.pins, parameters.direction );
+        ]]>
+    </function>
+    <function id="output_bll_set" params="parameters">
+        <![CDATA[
+            gpio.set( parameters.pins, parameters.value );
+        ]]>
+    </function>
+
+    <!-- OutputGroup BLL scripts -->
+    <function id="outputgroup_bll_init" params="parameters">
+        <![CDATA[
+            for( var j = 0; j < parameters.outputs.length; j++ )
+            {
+                var next = parameters.outputs[j];
+
+                // initialize the current output
+                gpio.init( [next.pin], "output" );
+                gpio.set( [next.pin], 0 );
+            }
+        ]]>
+    </function>
+    <function id="outputgroup_bll_sync" params="parameters">
+        <![CDATA[
+            for( var j = 0; j < parameters.outputs.length; j++ )
+                gpio.set( [parameters.outputs[j].pin], parameters.outputs[j].state );
+        ]]>
+    </function>
+
+</module>

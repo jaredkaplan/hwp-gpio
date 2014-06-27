@@ -1,0 +1,280 @@
+<!--
+  Copyright 2011-2014 Marvell Semiconductor, Inc.
+
+  Licensed under the Apache License, Version 2.0 (the "License");
+  you may not use this file except in compliance with the License.
+  You may obtain a copy of the License at
+
+      http://www.apache.org/licenses/LICENSE-2.0
+
+  Unless required by applicable law or agreed to in writing, software
+  distributed under the License is distributed on an "AS IS" BASIS,
+  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  See the License for the specific language governing permissions and
+  limitations under the License.
+-->
+<module xmlns="http://www.kinoma.com/kpr/1">
+
+    <require id="HardwarepinsSimulator" path="kdt/simulator/HardwarepinsSimulator" />
+    <require id="PartSimulators" path="kdt/simulator/PartSimulators" />
+    <require id="HardwarepinsModule" path="HardwarepinsModule" />
+    <require id="GPIO" path="GPIO" />
+    <require id="GPIOScripts" path="GPIOScripts" />
+
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+    <!-- Function called by the HardwarepinsSimulatorDeviceBehavior  -->
+    <!-- when a simulator interface is registered. The data returned -->
+    <!-- is used to create a new parts simulator part in the device  -->
+    <!-- simulator UI.                                               -->
+    <!-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++-->
+
+    <function id="createHardwarepinsSimulatorPartData" params="config, id">
+        <![CDATA[
+            var data = null;
+
+            // create part data for a GPIO.Input simulator
+            if( id == GPIO.INPUT_SIMULATOR_ID )
+                data = createInputPartData( config );
+
+            // create part data for a GPIO.Button simulator
+            else if( id == GPIO.BUTTON_SIMULATOR_ID )
+                data = createButtonPartData( config );
+
+            // create part data for a GPIO.LED simulator
+            else if( id == GPIO.LED_SIMULATOR_ID )
+                data = createLEDPartData( config );
+
+            return data;
+        ]]>
+    </function>
+
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+    <!-- Simulator implementation for GPIO.Input hardwarepins module -->
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+    <function id="createInputPartData" params="config">
+        <![CDATA[
+            var data = {
+                id : GPIO.INPUT_SIMULATOR_ID,
+                behavior: InputSimulatorPartBehavior,
+                header : { 
+                    label : (config != null && "label" in config) ? config.label : "Input", name : "GPIO - Input", iconVariant : PartSimulators.SENSOR_BUTTON 
+                },
+                axes : [
+                    new PartSimulators.BooleanAxisDescription(
+                        {
+                            ioType : "input",
+                            dataType : "boolean",
+                            valueLabel : "State",
+                            valueID : "state",
+                            minValue : 0,
+                            maxValue : 1,
+                            value : 0,
+                            speed : 5
+                        }
+                    )
+                ]
+            };
+
+            return data;
+        ]]>
+    </function>
+
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+    <!-- InputSimulatorPartBehavior class - behavior for the input simulator -->
+    <!-- part container created by the hardwarepins device simulator.        -->
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+    <behavior id="InputSimulatorPartBehavior" like="HardwarepinsSimulator.DefaultPartBehavior">
+        <field id="state" value="-1"/>
+        <method id="createInputResult" params="content, parameters">
+            <![CDATA[
+                var value = content.delegate( "getValue" );
+
+                return value != null ? GPIOScripts.createInputResult( value ) : value;        
+            ]]>
+        </method>
+        <method id="createPollingInputResult" params="content, parameters">
+            <![CDATA[
+                var value = content.delegate( "getValue" );
+                var result = null;
+
+                if( value != null && value.state != this.state )
+                {
+                    result = GPIOScripts.createInputResult( value.state );
+                    
+                    this.state = value.state;
+                }
+
+                return result;
+            ]]>
+        </method>
+    </behavior>
+
+    <!-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+    <!-- Simulator implementation for GPIO.Button hardwarepins module -->
+    <!-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+    <function id="createButtonPartData" params="config">
+        <![CDATA[
+            var data = {
+                id : GPIO.BUTTON_SIMULATOR_ID,
+                behavior: ButtonSimulatorPartBehavior,
+                header : { 
+                    label : (config != null && "label" in config) ? config.label : "Button", name : "GPIO - Button", iconVariant : PartSimulators.SENSOR_BUTTON 
+                },
+                axes : [
+                    new PartSimulators.BooleanAxisDescription(
+                        {
+                            ioType : "input",
+                            dataType : "boolean",
+                            valueLabel : "State",
+                            valueID : "state",
+                            minValue : 0,
+                            maxValue : 1,
+                            value : 0,
+                            speed : 5
+                        }
+                    )
+                ]
+            };
+            
+            return data;
+        ]]>
+    </function>
+
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+    <!-- ButtonSimulatorPartBehavior class - behavior for the button simulator -->
+    <!-- part container created by the hardwarepins device simulator.          -->
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+    <behavior id="ButtonSimulatorPartBehavior" like="HardwarepinsSimulator.DefaultPartBehavior">
+        <field id="state" value="-1"/>
+        <method id="createInputResult" params="content, parameters">
+            <![CDATA[
+                var value = content.delegate( "getValue" );
+
+                return value != null ? GPIOScripts.createButtonResult( value, value.state == parameters.pressedState ) : value;        
+            ]]>
+        </method>
+        <method id="createPollingInputResult" params="content, parameters">
+            <![CDATA[
+                var value = content.delegate( "getValue" );
+                var result = null;
+
+                if( value != null && value.state != this.state )
+                {
+                    result = GPIOScripts.createButtonResult( value.state, value.state == parameters.pressedState );
+
+                    this.state = value.state;
+                }
+
+                return result;
+            ]]>
+        </method>
+    </behavior>
+
+    <!-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+    <!-- Simulator implementation for GPIO.LED hardwarepins module -->
+    <!-- ++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+    <texture id="LedBackgroundTexture" small="led-background.png" />
+    <texture id="LedBulbMaskTexture" small="led-bulb.png" />
+
+    <variable id="ledTextureMap" value="{}" />
+
+    <function id="createLEDPartData" params="config">
+        <![CDATA[
+            var data = {
+                id : GPIO.LED_SIMULATOR_ID,
+                behavior: LEDSimulatorPartBehavior,
+                config: config,
+                header : { 
+                    label : (config != null && "label" in config) ? config.label : "LED", name : "GPIO - LED", iconVariant : PartSimulators.SENSOR_LED 
+                },
+                axes : [
+                    new PartSimulators.BooleanAxisDescription(
+                        {
+                            ioType : "output",
+                            valueLabel : "state",
+                            valueID : "state",
+                            value: 0,
+                            minValue : 0,
+                            maxValue : 1
+                        }
+                    )
+                ]
+            };
+
+            return data;
+        ]]>
+    </function>
+
+    <behavior id="LEDSimulatorPartBehavior" like="HardwarepinsSimulator.DefaultPartBehavior">
+        <field id="colorLedTexture" />
+        <method id="onCreate" params="content, data">
+            <![CDATA[
+               var config = data.config;
+
+               this.colorLedTexture = this.createColorLED( config != null && "color" in config ? config.color : "green" );
+
+               HardwarepinsSimulator.DefaultPartBehavior.prototype.onCreate.call( this, content, data );
+            ]]>
+        </method>
+        <method id="createColorLED" params="color">
+            <![CDATA[
+                var ledTexture = null;
+            
+                if( color in ledTextureMap )
+                    ledTexture = ledTextureMap[color];
+                    
+                else
+                {
+                    // create the content texture
+                    var port = new Port( {width:40, height:40} );
+
+                    port.behavior = 
+                    {
+                        onDraw: function( port ) 
+                        {
+                            port.drawImage( LedBackgroundTexture, 0, 0, 40, 40 );
+
+                            port.effect = new Effect();
+                            port.effect.colorize( color );
+                            port.effect.outerGlow( color, .75, 2, 3 );
+                            port.effect.innerGlow( "white", .5, 7, 4 );
+
+                            port.drawImage( LedBulbMaskTexture, 0, 0, 40, 40 );
+                        }
+                    }
+
+                    ledTexture = ledTextureMap[color] = new Texture( port, {x:0, y:0, width: 40, height: 40} );
+                }
+
+                return ledTexture;
+            ]]>
+        </method>
+        <method id="init" params="content, message">
+            <![CDATA[
+                this.context.state = HardwarepinsModule.LOW;
+            ]]>
+        </method>
+        <method id="set" params="content, message">
+            <![CDATA[
+                var parameters = this.getParametersFromMessage( message );
+
+                if( parameters.value == HardwarepinsModule.HIGH || parameters.value == "on" || parameters.value == "high" )
+                    this.context.state = HardwarepinsModule.HIGH;
+
+                else if( parameters.value == "toggle" )
+                    this.context.state = this.context.state == HardwarepinsModule.LOW ? HardwarepinsModule.HIGH : HardwarepinsModule.LOW;
+
+                else
+                    this.context.state = HardwarepinsModule.LOW;
+
+                content.delegate( "setIconTexture", this.context.state == HardwarepinsModule.HIGH ? this.colorLedTexture : null );
+            ]]>
+        </method>
+    </behavior>
+
+</module>

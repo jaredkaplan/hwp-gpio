@@ -1,0 +1,160 @@
+<?xml version="1.0" encoding="utf-8"?>
+<program xmlns="http://www.kinoma.com/kpr/1">
+
+    <require id="GPIO" path="GPIO" />
+
+    <container id="MainContainer" top="0" left="0" bottom="0" right="0">
+        <skin color="white"/>
+        <label name="info" string="'Blinking Lights'">
+            <style font="24px Arial" color="black"/>
+        </label>
+    </container>
+
+    <script>
+        <![CDATA[
+            var group = new GPIO.OutputGroup();
+
+            // add some LED instances to the output group
+            // we iterate over the following array of pin 
+            // numbers to create the LED object associated
+            // with each pin in the array
+            var pins = [3,4,5,6,7,8];
+            var colors = ["red","green","yellow"];
+
+            for( var j = 0; j < pins.length; j++ )
+                group.add( new GPIO.LED( pins[j], {color:colors[j % colors.length]} ) );
+
+            // initialize the led group
+            group.init();
+
+            // create the main container which uses a conent
+            // timer to blink the lights
+            application.add( new MainContainer() );
+
+            // start blinking!
+            application.invoke( new Message( "/toggle" ) );
+        ]]>
+    </script>
+
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+    <!-- Toggle handler toggles all of the LED's in the group on and off -->
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+    <handler path="/toggle">
+        <behavior>
+            <field id="count" value="0"/>
+            <method id="onInvoke" params="handler, message">
+                <![CDATA[
+                    if( this.count < 10 ) {
+                        this.count++;
+                        group.toggle();
+                        handler.invoke( new Message( "/delay?duration=500&cb=/toggle" ) );
+                    }
+                    else {
+                        this.count = 0;
+                        handler.invoke( new Message( "/randomize" ) );
+                    }
+                ]]>
+            </method>
+        </behavior>
+    </handler>
+
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+    <!-- Randomize handler randoizes the state of all of the LED's       -->
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+    <handler path="/randomize">
+        <behavior>
+            <field id="count" value="0"/>
+            <method id="onInvoke" params="handler, message">
+                <![CDATA[
+                    if( this.count < 10 ) {
+                        this.count++;
+                        group.randomize();
+                        handler.invoke( new Message( "/delay?duration=500&cb=/randomize" ) );
+                    }
+                    else {
+                        this.count = 0;
+                        group.off();
+                        handler.invoke( new Message( "/sequence" ) );
+                    }
+                ]]>
+            </method>
+        </behavior>
+    </handler>
+
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+    <!-- Sequence handler turns the LED's on and off in sequence         -->
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+    <handler path="/sequence">
+        <behavior>
+            <field id="count" value="0"/>
+            <field id="idx" value="0"/>
+            <field id="direction" value="0"/>
+            <method id="onInvoke" params="handler, message">
+                <![CDATA[
+                    if( this.count < 5 ) {
+                        group.off();
+                        group.outputs[this.idx].on();
+                        group.sync();
+
+                        if( this.direction == 0 ) {
+                            if( this.idx + 1 < group.outputs.length )
+                                this.idx++;
+                            else {
+                                this.direction = 1;
+                                this.idx--;
+                            }
+                        }
+                        else {
+                            if( this.idx > 0 )
+                                this.idx--;
+                            else {
+                                this.direction = 0;
+                                this.idx++;
+                                this.count++;
+                            }
+                        }
+
+                        handler.invoke( new Message( "/delay?duration=100&cb=/sequence" ) );
+                    }
+                    else {
+                        this.count = 0;
+                        this.idx = 0;
+                        this.direction = 0;
+
+                        group.off();
+                        handler.invoke( new Message( "/toggle" ) );
+                    }
+                ]]>
+            </method>
+        </behavior>
+    </handler>
+
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+    <!-- Tell the handler to wait before calling the specified handler   -->
+    <!-- +++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++++ -->
+
+    <handler path="/delay">
+        <behavior>
+            <method id="onInvoke" params="handler, message">
+                <![CDATA[
+                    var query = parseQuery( message.query );
+                    var duration = query.duration;
+
+                    handler.wait( duration )
+                ]]>
+            </method>
+            <method id="onComplete" params="handler, message">
+                <![CDATA[
+                    var query = parseQuery( handler.message.query );
+                    var cb = query.cb;
+
+                    handler.invoke( new Message( cb ) );
+                ]]>
+            </method>
+        </behavior>
+    </handler>
+
+</program>

@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<modulepath>
+   <modulepathentry path="com.marvell.kinoma.kpr:/libraries/Hardwarepins.zip" type="lib" kind="plugin"></modulepathentry>
+   <modulepathentry path="hwp-gpio" type="lib" kind="project"></modulepathentry>
+   <modulepathentry path="src" type="src"></modulepathentry>
+</modulepath>
