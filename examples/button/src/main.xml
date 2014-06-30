@@ -6,8 +6,20 @@
 
     <container id="MainContainer" top="0" left="0" bottom="0" right="0">
         <skin color="white"/>
-        <label name="info" string="'- - -'">
+        <label string="'- - -'">
             <style font="24px Arial" color="black"/>
+            <behavior>
+                <method id="handleButtonChanged" params="content, state, pressed">
+                    <![CDATA[
+                        var info = state == HardwarepinsModule.LOW ? "Low" : "High";
+
+                        if( pressed )
+                            info += " (Pressed)";
+
+                        content.string = info;
+                    ]]>
+                </method>
+            </behavior>
         </label>
     </container>
 
@@ -21,11 +33,8 @@
             // initialize the led group
             button.init();
 
-            // create the main container
-            var mainContainer = new MainContainer();
-
-            // add main container to the application
-            application.add( mainContainer );
+            // create the main container and add it to the application
+            application.add( new MainContainer() );
 
             // start polling the button state
             button.poll( 50, HardwarepinsModule.MILLISECONDS, "/button/value" );
@@ -43,14 +52,7 @@
                     var data = message.requestObject;
 
                     if( data != null ) 
-                    {
-                        var info = data.value == 0 ? "Low" : "High";
-
-                        if( data.pressed )
-                            info += " (Pressed)";
-
-                        mainContainer.info.string = info;
-                    }
+                        application.distribute( "handleButtonChanged", data.value, data.pressed );
                 ]]>
             </method>
         </behavior>
